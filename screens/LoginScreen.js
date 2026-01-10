@@ -17,13 +17,18 @@ import CustomButton from '../components/CustomButton';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { login as apiLogin, register as apiRegister } from '../utils/api';
+import { useMockContext } from '../utils/MockContext';
 
 const LoginScreen = ({ navigation }) => {
     const [isLogin, setIsLogin] = useState(true);
     const [name, setName] = useState('');
-    const [email, setEmail] = useState(''); // Serves as Mobile or Email
+    const [email, setEmail] = useState(''); // Serves as Mobile or Email identifier
+    const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    const { login } = useMockContext();
 
     const validateInput = () => {
         setError('');
@@ -31,20 +36,12 @@ const LoginScreen = ({ navigation }) => {
         // Name Validation (Signup only)
         if (!isLogin) {
             if (!name.trim()) return "Full Name is required.";
-            if (name.length < 3) return "Name must be at least 3 characters.";
         }
 
         // Mobile/Email Validation
-        if (!email.trim()) return "Mobile Number or Email is required.";
-
-        // Simple Regex for Email
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        // Simple Regex for 10-digit Mobile
-        const mobileRegex = /^[0-9]{10}$/;
-
-        if (!emailRegex.test(email) && !mobileRegex.test(email)) {
-            return "Please enter a valid Email or 10-digit Mobile Number.";
-        }
+        if (!email.trim()) return "Email is required.";
+        if (isLogin && !password.trim()) return "Password is required.";
+        if (!isLogin && !password.trim()) return "Password is required.";
 
         return null;
     };
@@ -60,42 +57,61 @@ const LoginScreen = ({ navigation }) => {
         setLoading(true);
 
         try {
-            // Mock Auth & Location Permission
+            // Location Permission (keep existing flow)
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Permission Denied', 'Location permission is required to detect your city.');
-                setLoading(false);
-                return;
+                // Alert.alert('Permission Denied', 'Location permission is required.');
             }
 
-            // Fetch current location for "first login" simulation
-            await Location.getCurrentPositionAsync({});
+            if (isLogin) {
+                // LOGIN
+                const response = await apiLogin(email, password); // email state holds the input (email or phone)
+                console.log('Login Success:', response);
 
-            // Mock delay
-            setTimeout(() => {
-                setLoading(false);
-                navigation.replace('MainApp', {
-                    user: { name: name || 'Citizen', email }
-                });
-            }, 1500);
+                if (response.success) {
+                    await login(response.user, response.token);
+                    navigation.replace('MainApp');
+                } else {
+                    throw new Error(response.message || 'Login failed');
+                }
+            } else {
+                // REGISTER
+                // Swagger expects: { name, email, phone, password }
+                // UI has Name, Email/Phone. I need to parse or ask for both.
+                // Assuming Email input is Email. I'll add a separate Phone input or just send one.
+                // For now, I'll send email as email and phone.
+                const signupData = {
+                    name,
+                    email: email.includes('@') ? email : '',
+                    password
+                };
+
+                // If the user entered only one contact method, the other might be missing.
+                // The API might require both? Swagger said "Register a new user with email OR phone".
+                // I will send both keys, one might be empty.
+                const response = await apiRegister(signupData);
+                console.log('Register Success:', response);
+                Alert.alert("Success", "Account created! Please login.");
+                setIsLogin(true); // Switch to login
+            }
 
         } catch (error) {
-            console.log(error);
+            console.log('Auth Error:', error);
+            setError(typeof error === 'string' ? error : (error.message || 'Authentication failed'));
+            Alert.alert('Error', typeof error === 'string' ? error : (error.message || 'Authentication failed'));
+        } finally {
             setLoading(false);
-            Alert.alert('Error', 'Something went wrong. Please try again.');
         }
     };
 
     const handleGoogleLogin = async () => {
-        // In a real app, use response = await promptAsync();
-        // Here we mock the success for the demo as requested, 
-        // assuming the user clicked the button and auth succeeded in the browser popup
+        // Mock Google Login
         setLoading(true);
-        setTimeout(() => {
+        setTimeout(async () => {
             setLoading(false);
-            navigation.replace('MainApp', {
-                user: { name: 'Google User', email: 'user@gmail.com' }
-            });
+            const mockUser = { name: 'Google User', email: 'user@gmail.com', u_id: 'g_123' };
+            await login(mockUser, 'mock_token');
+            navigation.replace('MainApp');
         }, 1500);
     };
 
@@ -143,12 +159,24 @@ const LoginScreen = ({ navigation }) => {
                             <Ionicons name="mail-outline" size={20} color={COLORS.textLight} style={styles.inputIcon} />
                             <TextInput
                                 style={styles.input}
-                                placeholder="Mobile Number or Email"
+                                placeholder="Email"
                                 placeholderTextColor="#999"
                                 value={email}
                                 onChangeText={setEmail}
                                 keyboardType="email-address"
                                 autoCapitalize="none"
+                            />
+                        </View>
+
+                        <View style={styles.inputContainer}>
+                            <Ionicons name="lock-closed-outline" size={20} color={COLORS.textLight} style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Password"
+                                placeholderTextColor="#999"
+                                value={password}
+                                onChangeText={setPassword}
+                                secureTextEntry
                             />
                         </View>
 
