@@ -29,7 +29,7 @@ api.interceptors.request.use(
         return config;
     },
     (error) => {
-        console.error('[API REQUEST ERROR]', error);
+        console.log('[API REQUEST ERROR]', error);
         return Promise.reject(error);
     }
 );
@@ -41,7 +41,7 @@ api.interceptors.response.use(
         return response;
     },
     (error) => {
-        console.error('[API RESPONSE ERROR]', error.response?.status, error.response?.data);
+        console.log('[API RESPONSE ERROR]', error.response?.status, error.response?.data);
         return Promise.reject(error);
     }
 );

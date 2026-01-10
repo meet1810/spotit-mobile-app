@@ -70,7 +70,7 @@ export const MockProvider = ({ children }) => {
             try {
                 await AsyncStorage.setItem('userPoints', userData.points.toString());
             } catch (e) {
-                console.error('Error saving points', e);
+                console.log('Error saving points', e);
             }
         }
 
@@ -80,7 +80,7 @@ export const MockProvider = ({ children }) => {
             // Refresh issues on login
             await refreshIssues();
         } catch (e) {
-            console.error('Login storage error', e);
+            console.log('Login storage error', e);
         }
     };
 
@@ -92,7 +92,7 @@ export const MockProvider = ({ children }) => {
             await AsyncStorage.removeItem('user');
             await AsyncStorage.removeItem('userToken');
         } catch (e) {
-            console.error('Logout storage error', e);
+            console.log('Logout storage error', e);
         }
     };
 
@@ -108,7 +108,7 @@ export const MockProvider = ({ children }) => {
             // await AsyncStorage.setItem('userIssues', JSON.stringify(newIssues)); 
             await AsyncStorage.setItem('userPoints', newPoints.toString());
         } catch (e) {
-            console.error('Save issue error', e);
+            console.log('Save issue error', e);
         }
     };
 
