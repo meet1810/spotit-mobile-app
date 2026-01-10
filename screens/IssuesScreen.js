@@ -7,13 +7,19 @@ import { useLanguage } from '../utils/LanguageContext';
 import Header from '../components/Header';
 
 const IssuesScreen = ({ navigation }) => {
-    const { issues } = useMockContext();
+    const { issues, refreshIssues } = useMockContext();
     const { t } = useLanguage();
     const [filter, setFilter] = useState('All'); // All, Recent
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await refreshIssues();
+        setRefreshing(false);
+    };
 
     const getFilteredIssues = () => {
         if (filter === 'Recent') {
-            // Mock recent logic (e.g. last 24h), here just top 5
             return issues.slice(0, 5);
         }
         return issues;
@@ -52,9 +58,11 @@ const IssuesScreen = ({ navigation }) => {
                     </TouchableOpacity>
                 )}
                 contentContainerStyle={styles.listContent}
+                onRefresh={onRefresh}
+                refreshing={refreshing}
                 ListEmptyComponent={
                     <View style={COMMON_STYLES.center}>
-                        <Text style={{ marginTop: 50, color: COLORS.textLight }}>No issues found.</Text>
+                        <Text style={{ marginTop: 50, color: COLORS.textLight }}>Not any issue yet</Text>
                     </View>
                 }
             />

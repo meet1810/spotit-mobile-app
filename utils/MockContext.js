@@ -1,5 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getReports } from './api';
+import { NATIVE_PUBLIC_URL } from '../constants/Config';
 
 const MockContext = createContext();
 
@@ -7,29 +9,8 @@ export const MockProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
-
-    const [issues, setIssues] = useState([
-        {
-            id: '1',
-            imageUri: 'https://via.placeholder.com/150', // Placeholder for demo
-            timestamp: Date.now() - 10000000,
-            status: 'Counted',
-            locationText: 'Sector 4, New Delhi',
-            category: 'Garbage Dump',
-            points: 50
-        },
-        {
-            id: '2',
-            imageUri: 'https://via.placeholder.com/150',
-            timestamp: Date.now() - 5000000,
-            status: 'Analyzed',
-            locationText: 'Market Road, Delhi',
-            category: 'Overflowing Bin',
-            points: 50
-        }
-    ]);
-    const [points, setPoints] = useState(100);
-
+    const [issues, setIssues] = useState([]); // Manage Global Issues
+    const [points, setPoints] = useState(0);
     const [userLocation, setUserLocation] = useState(null);
 
     // restore token/user/data on load
@@ -39,12 +20,17 @@ export const MockProvider = ({ children }) => {
                 const userJson = await AsyncStorage.getItem('user');
                 const tokenStr = await AsyncStorage.getItem('userToken');
                 const pointsStr = await AsyncStorage.getItem('userPoints');
-                const issuesJson = await AsyncStorage.getItem('userIssues');
+                // const issuesJson = await AsyncStorage.getItem('userIssues'); // Deprecated: We fetch valid list from API
 
                 if (userJson) setUser(JSON.parse(userJson));
                 if (tokenStr) setToken(tokenStr);
                 if (pointsStr) setPoints(parseInt(pointsStr, 10));
-                if (issuesJson) setIssues(JSON.parse(issuesJson));
+
+                // Fetch issues if logged in
+                if (tokenStr) {
+                    await refreshIssues();
+                }
+
             } catch (e) {
                 console.log('Restoring data failed', e);
             }
@@ -54,12 +40,45 @@ export const MockProvider = ({ children }) => {
         bootstrapAsync();
     }, []);
 
+    const refreshIssues = async () => {
+        try {
+            const response = await getReports();
+            if (response.reports) {
+                const mappedIssues = response.reports.map(report => ({
+                    id: report.id.toString(),
+                    imageUri: report.imagePath ? `${NATIVE_PUBLIC_URL}/${report.imagePath}` : 'https://via.placeholder.com/150',
+                    timestamp: new Date(report.createdAt).getTime(),
+                    status: report.status || 'Pending',
+                    locationText: report.aiResponse?.description || `Lat: ${report.latitude.toFixed(4)}, Long: ${report.longitude.toFixed(4)}`,
+                    category: report.aiResponse?.issue_type || 'Unidentified',
+                    points: report.points || 0
+                }));
+                // Show newest first
+                setIssues(mappedIssues.reverse());
+            }
+        } catch (error) {
+            console.log('Error refreshing issues:', error);
+        }
+    };
+
     const login = async (userData, authToken) => {
         setUser(userData);
         setToken(authToken);
+
+        if (userData?.points !== undefined) {
+            setPoints(userData.points);
+            try {
+                await AsyncStorage.setItem('userPoints', userData.points.toString());
+            } catch (e) {
+                console.error('Error saving points', e);
+            }
+        }
+
         try {
             await AsyncStorage.setItem('user', JSON.stringify(userData));
             if (authToken) await AsyncStorage.setItem('userToken', authToken);
+            // Refresh issues on login
+            await refreshIssues();
         } catch (e) {
             console.error('Login storage error', e);
         }
@@ -68,20 +87,17 @@ export const MockProvider = ({ children }) => {
     const logout = async () => {
         setUser(null);
         setToken(null);
+        setIssues([]);
         try {
             await AsyncStorage.removeItem('user');
             await AsyncStorage.removeItem('userToken');
-            // Optional: Clear points/issues on logout? Usually keep them or clear them. 
-            // I will keep them for now or clear if user wants "clean" state.
-            // But usually "logout" clears user data.
-            // await AsyncStorage.removeItem('userPoints');
-            // await AsyncStorage.removeItem('userIssues');
         } catch (e) {
             console.error('Logout storage error', e);
         }
     };
 
     const addIssue = async (issue) => {
+        // Optimistic Update
         const newIssues = [issue, ...issues];
         const newPoints = points + (issue.points || 0);
 
@@ -89,7 +105,7 @@ export const MockProvider = ({ children }) => {
         setPoints(newPoints);
 
         try {
-            await AsyncStorage.setItem('userIssues', JSON.stringify(newIssues));
+            // await AsyncStorage.setItem('userIssues', JSON.stringify(newIssues)); 
             await AsyncStorage.setItem('userPoints', newPoints.toString());
         } catch (e) {
             console.error('Save issue error', e);
@@ -106,6 +122,7 @@ export const MockProvider = ({ children }) => {
             login,
             logout,
             addIssue,
+            refreshIssues,
             userLocation,
             setUserLocation
         }}>

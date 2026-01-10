@@ -10,62 +10,62 @@ import {
     ScrollView,
     Image,
     TouchableOpacity,
-    ActivityIndicator
+    ActivityIndicator,
+    Modal
 } from 'react-native';
-import { COLORS, COMMON_STYLES, SIZES } from '../styles/theme';
+import { COLORS, COMMON_STYLES, SIZES, SHADOWS } from '../styles/theme';
 import CustomButton from '../components/CustomButton';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { login as apiLogin, register as apiRegister } from '../utils/api';
 import { useMockContext } from '../utils/MockContext';
+import { useLanguage } from '../utils/LanguageContext';
 
 const LoginScreen = ({ navigation }) => {
     const [isLogin, setIsLogin] = useState(true);
     const [name, setName] = useState('');
-    const [email, setEmail] = useState(''); // Serves as Mobile or Email identifier
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [secureTextEntry, setSecureTextEntry] = useState(true);
+    const [langModalVisible, setLangModalVisible] = useState(false);
 
     const { login } = useMockContext();
+    const { t, changeLanguage, language, languages } = useLanguage();
+
+    const toggleSecureEntry = () => {
+        setSecureTextEntry(!secureTextEntry);
+    };
 
     const validateInput = () => {
         setError('');
-
-        // Name Validation (Signup only)
-        if (!isLogin) {
-            if (!name.trim()) return "Full Name is required.";
-        }
-
-        // Mobile/Email Validation
-        if (!email.trim()) return "Email is required.";
-        if (isLogin && !password.trim()) return "Password is required.";
-        if (!isLogin && !password.trim()) return "Password is required.";
-
+        if (!isLogin && !name.trim()) return t('invalidInput');
+        if (!email.trim()) return t('invalidInput');
+        if (!password.trim()) return t('invalidInput');
         return null;
     };
 
     const handleAuth = async () => {
         const validationError = validateInput();
         if (validationError) {
-            setError(validationError); // Show inline error
-            Alert.alert("Invalid Input", validationError);
+            setError(validationError);
+            Alert.alert(t('invalidInput'), validationError);
             return;
         }
 
         setLoading(true);
 
         try {
-            // Location Permission (keep existing flow)
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
-                // Alert.alert('Permission Denied', 'Location permission is required.');
+                // optional handling
             }
 
             if (isLogin) {
                 // LOGIN
-                const response = await apiLogin(email, password); // email state holds the input (email or phone)
+                const response = await apiLogin(email, password);
                 console.log('Login Success:', response);
 
                 if (response.success) {
@@ -76,36 +76,29 @@ const LoginScreen = ({ navigation }) => {
                 }
             } else {
                 // REGISTER
-                // Swagger expects: { name, email, phone, password }
-                // UI has Name, Email/Phone. I need to parse or ask for both.
-                // Assuming Email input is Email. I'll add a separate Phone input or just send one.
-                // For now, I'll send email as email and phone.
                 const signupData = {
                     name,
                     email: email.includes('@') ? email : '',
                     password
                 };
 
-                // If the user entered only one contact method, the other might be missing.
-                // The API might require both? Swagger said "Register a new user with email OR phone".
-                // I will send both keys, one might be empty.
                 const response = await apiRegister(signupData);
                 console.log('Register Success:', response);
-                Alert.alert("Success", "Account created! Please login.");
-                setIsLogin(true); // Switch to login
+                Alert.alert(t('success'), t('accountCreated'));
+                setIsLogin(true);
             }
 
         } catch (error) {
             console.log('Auth Error:', error);
-            setError(typeof error === 'string' ? error : (error.message || 'Authentication failed'));
-            Alert.alert('Error', typeof error === 'string' ? error : (error.message || 'Authentication failed'));
+            const errorMsg = typeof error === 'string' ? error : (error.message || t('authFailed'));
+            setError(errorMsg);
+            Alert.alert('Error', errorMsg);
         } finally {
             setLoading(false);
         }
     };
 
     const handleGoogleLogin = async () => {
-        // Mock Google Login
         setLoading(true);
         setTimeout(async () => {
             setLoading(false);
@@ -125,16 +118,18 @@ const LoginScreen = ({ navigation }) => {
 
                     {/* Header Section */}
                     <View style={styles.header}>
-                        {/* Placeholder for Logo - In real app, replace text logo with real Image */}
-                        <Image source={require('../assets/logo.png')} style={styles.logo} resizeMode="contain" />
-                        {/* <View style={styles.logoContainer}>
-                            <Ionicons name="location" size={60} color={COLORS.primary} />
-                            <Text style={styles.logoText}>SpotIt</Text>
-                        </View> */}
+                        <TouchableOpacity
+                            style={styles.langButton}
+                            onPress={() => setLangModalVisible(true)}
+                        >
+                            <Ionicons name="language" size={20} color={COLORS.primary} />
+                            <Ionicons name="chevron-down" size={16} color={COLORS.primary} style={{ marginLeft: 2 }} />
+                        </TouchableOpacity>
 
-                        <Text style={styles.title}>{isLogin ? 'Welcome Back!' : 'Join the Mission'}</Text>
+                        <Image source={require('../assets/spot_it_full_logo.png')} style={styles.logo} resizeMode="contain" />
+                        <Text style={styles.title}>{isLogin ? t('welcomeBack') : t('joinMission')}</Text>
                         <Text style={styles.subtitle}>
-                            {isLogin ? 'Sign in to make your city cleaner.' : 'Register to start reporting issues.'}
+                            {isLogin ? t('signInDesc') : t('registerDesc')}
                         </Text>
                     </View>
 
@@ -147,7 +142,7 @@ const LoginScreen = ({ navigation }) => {
                                 <Ionicons name="person-outline" size={20} color={COLORS.textLight} style={styles.inputIcon} />
                                 <TextInput
                                     style={styles.input}
-                                    placeholder="Full Name"
+                                    placeholder={t('fullName')}
                                     placeholderTextColor="#999"
                                     value={name}
                                     onChangeText={setName}
@@ -159,7 +154,7 @@ const LoginScreen = ({ navigation }) => {
                             <Ionicons name="mail-outline" size={20} color={COLORS.textLight} style={styles.inputIcon} />
                             <TextInput
                                 style={styles.input}
-                                placeholder="Email"
+                                placeholder={t('emailPlaceholder')}
                                 placeholderTextColor="#999"
                                 value={email}
                                 onChangeText={setEmail}
@@ -172,16 +167,19 @@ const LoginScreen = ({ navigation }) => {
                             <Ionicons name="lock-closed-outline" size={20} color={COLORS.textLight} style={styles.inputIcon} />
                             <TextInput
                                 style={styles.input}
-                                placeholder="Password"
+                                placeholder={t('passwordPlaceholder')}
                                 placeholderTextColor="#999"
                                 value={password}
                                 onChangeText={setPassword}
-                                secureTextEntry
+                                secureTextEntry={secureTextEntry}
                             />
+                            <TouchableOpacity onPress={toggleSecureEntry} style={styles.eyeIcon}>
+                                <Ionicons name={secureTextEntry ? "eye-off-outline" : "eye-outline"} size={20} color={COLORS.textLight} />
+                            </TouchableOpacity>
                         </View>
 
                         <CustomButton
-                            title={isLogin ? 'Login' : 'create Account'}
+                            title={isLogin ? t('login') : t('createAccount')}
                             onPress={handleAuth}
                             loading={loading}
                             style={styles.authButton}
@@ -189,7 +187,7 @@ const LoginScreen = ({ navigation }) => {
 
                         <View style={styles.dividerContainer}>
                             <View style={styles.dividerLine} />
-                            <Text style={styles.dividerText}>OR</Text>
+                            <Text style={styles.dividerText}>{t('or')}</Text>
                             <View style={styles.dividerLine} />
                         </View>
 
@@ -199,18 +197,18 @@ const LoginScreen = ({ navigation }) => {
                             ) : (
                                 <>
                                     <Ionicons name="logo-google" size={24} color={COLORS.danger} style={{ marginRight: 10 }} />
-                                    <Text style={styles.googleButtonText}>Continue with Google</Text>
+                                    <Text style={styles.googleButtonText}>{t('continueGoogle')}</Text>
                                 </>
                             )}
                         </TouchableOpacity>
 
                         <View style={styles.toggleContainer}>
                             <Text style={styles.toggleText}>
-                                {isLogin ? "New to SpotIt? " : 'Already a Citizen? '}
+                                {isLogin ? t('newToSpotIt') : t('alreadyCitizen')}
                             </Text>
                             <TouchableOpacity onPress={() => { setError(''); setIsLogin(!isLogin); }}>
                                 <Text style={styles.toggleLink}>
-                                    {isLogin ? 'Sign Up' : 'Login'}
+                                    {isLogin ? t('signUp') : t('login')}
                                 </Text>
                             </TouchableOpacity>
                         </View>
@@ -218,11 +216,42 @@ const LoginScreen = ({ navigation }) => {
 
                     {/* Footer decoration */}
                     <View style={styles.footer}>
-                        <Text style={styles.footerText}>Swachh Bharat Mission Initiative</Text>
+                        <Text style={styles.footerText}>{t('missionInitiative')}</Text>
                     </View>
 
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            {/* Language Modal */}
+            <Modal visible={langModalVisible} animationType="slide" transparent>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>{t('language')}</Text>
+                            <TouchableOpacity onPress={() => setLangModalVisible(false)}>
+                                <Ionicons name="close" size={24} color={COLORS.text} />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView contentContainerStyle={{ padding: 20 }}>
+                            {languages.map(lang => (
+                                <TouchableOpacity
+                                    key={lang.code}
+                                    style={[styles.langOption, language === lang.code && styles.selectedLang]}
+                                    onPress={() => {
+                                        changeLanguage(lang.code);
+                                        setLangModalVisible(false);
+                                    }}
+                                >
+                                    <Text style={[styles.langModalText, language === lang.code && { color: COLORS.primary, fontWeight: 'bold' }]}>
+                                        {lang.label}
+                                    </Text>
+                                    {language === lang.code && <Ionicons name="checkmark" size={20} color={COLORS.primary} />}
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 };
@@ -236,31 +265,45 @@ const styles = StyleSheet.create({
     header: {
         alignItems: 'center',
         marginBottom: 30,
+        position: 'relative',
+        width: '100%',
     },
-    logoContainer: {
+    langButton: {
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 20,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        backgroundColor: COLORS.white,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        zIndex: 10,
+        ...SHADOWS.light
     },
-    logoText: {
-        fontSize: 32,
+    langText: {
+        marginLeft: 5,
         fontWeight: 'bold',
         color: COLORS.primary,
-        marginTop: -5,
-        // Use a nice font family if available
+        fontSize: 12,
+        marginRight: 4,
     },
     logo: {
-        width: 150,
-        height: 150, // Adjusted size
+        width: 120,
+        height: 120,
         marginBottom: 10,
     },
     title: {
-        fontSize: 28,
+        fontSize: 26,
         color: COLORS.text,
         fontWeight: 'bold',
-        marginBottom: 10,
+        marginBottom: 8,
+        textAlign: 'center'
     },
     subtitle: {
-        fontSize: 16,
+        fontSize: 14,
         color: COLORS.textLight,
         textAlign: 'center',
         paddingHorizontal: 20,
@@ -269,7 +312,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.white,
         borderRadius: 20,
         padding: 20,
-        ...COMMON_STYLES.shadow, // Use the new card shadow
+        ...COMMON_STYLES.shadow,
     },
     inputContainer: {
         flexDirection: 'row',
@@ -284,6 +327,9 @@ const styles = StyleSheet.create({
     },
     inputIcon: {
         marginRight: 10,
+    },
+    eyeIcon: {
+        padding: 5,
     },
     input: {
         flex: 1,
@@ -324,13 +370,13 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: COLORS.border,
         height: 55,
-        borderRadius: 27.5,
+        borderRadius: 12,
         marginBottom: 20,
     },
     googleButtonText: {
-        color: COLORS.text, // Navy text
+        color: COLORS.text,
         fontWeight: '600',
-        fontSize: 16,
+        fontSize: 14,
     },
     toggleContainer: {
         flexDirection: 'row',
@@ -339,12 +385,12 @@ const styles = StyleSheet.create({
     },
     toggleText: {
         color: COLORS.textLight,
-        fontSize: 15,
+        fontSize: 14,
     },
     toggleLink: {
         color: COLORS.primary,
         fontWeight: 'bold',
-        fontSize: 15,
+        fontSize: 14,
     },
     errorText: {
         color: COLORS.danger,
@@ -353,13 +399,54 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     footer: {
-        marginTop: 40,
+        marginTop: 30,
         alignItems: 'center',
     },
     footerText: {
         color: COLORS.textLight,
         fontSize: 12,
         opacity: 0.6,
+    },
+
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: COLORS.white,
+        borderTopLeftRadius: 25,
+        borderTopRightRadius: 25,
+        height: '60%',
+        paddingBottom: 20,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: COLORS.text,
+    },
+    langOption: {
+        paddingVertical: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+        flexDirection: 'row',
+        justifyContent: 'space-between'
+    },
+    selectedLang: {
+        backgroundColor: '#f9f9f9'
+    },
+    langModalText: {
+        fontSize: 16,
+        color: COLORS.text,
     }
 });
 

@@ -22,6 +22,7 @@ import CustomButton from '../components/CustomButton';
 import IssueCard from '../components/IssueCard';
 import { useMockContext } from '../utils/MockContext';
 import { useLanguage } from '../utils/LanguageContext';
+import { reportIssue } from '../utils/api';
 import Header from '../components/Header';
 
 const { width } = Dimensions.get('window');
@@ -40,7 +41,7 @@ const HomeScreen = ({ navigation }) => {
     const pulseAnim = useRef(new Animated.Value(1)).current;
 
     // Context & Language
-    const { points, addIssue, issues, setUserLocation } = useMockContext();
+    const { points, addIssue, issues, setUserLocation, refreshIssues } = useMockContext();
     const { t } = useLanguage();
 
     const recentIssues = issues.slice(0, 3); // Top 3
@@ -152,15 +153,9 @@ const HomeScreen = ({ navigation }) => {
             formData.append('timestamp', Date.now().toString());
 
             // API URL Provided by User
-            const response = await fetch('https://fm0p8b2j-3000.inc1.devtunnels.ms/api/report', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            });
+            const result = await reportIssue(formData);
 
-            const result = response.ok ? await response.json() : {};
+
 
             const newIssue = {
                 id: result.id || Date.now().toString(),
@@ -177,7 +172,9 @@ const HomeScreen = ({ navigation }) => {
                 }
             };
 
-            addIssue(newIssue);
+            // Refresh global issues list from API
+            await refreshIssues();
+
             setAppState('SUCCESS');
 
         } catch (error) {
@@ -268,15 +265,6 @@ const HomeScreen = ({ navigation }) => {
         <View style={[COMMON_STYLES.container, COMMON_STYLES.center, { padding: 30 }]}>
             <Ionicons name="checkmark-circle" size={80} color={COLORS.success} />
             <Text style={styles.successTitle}>{t('issueSubmitted')}</Text>
-
-            <View style={styles.resultCard}>
-                <Text style={styles.resultLabel}>Detected:</Text>
-                <Text style={styles.resultValue}>Garbage Dump (95%)</Text>
-                <View style={styles.divider} />
-                <Text style={styles.resultLabel}>Points Earned:</Text>
-                <Text style={styles.pointsValue}>+{POINTS_PER_SUBMISSION}</Text>
-            </View>
-
             <CustomButton title="Back to Home" onPress={handleBackToHome} />
         </View>
     );

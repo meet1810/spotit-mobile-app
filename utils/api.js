@@ -1,6 +1,7 @@
 
 import axios from 'axios';
 import { NATIVE_PUBLIC_URL } from '../constants/Config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 console.log('API Base URL:', NATIVE_PUBLIC_URL);
 
@@ -12,15 +13,19 @@ const api = axios.create({
     },
 });
 
-// Request Interceptor (Optional: Add Token if needed later)
+// Request Interceptor (Add Token)
 api.interceptors.request.use(
     async (config) => {
-        // You can add logic here to inject the token from AsyncStorage
-        // const token = await AsyncStorage.getItem('userToken');
-        // if (token) {
-        //     config.headers.Authorization = `Bearer ${token}`;
-        // }
-        console.log(`[API REQUEST] ${config.method.toUpperCase()} ${config.url}`, config.data);
+        try {
+            const token = await AsyncStorage.getItem('userToken');
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
+            }
+        } catch (error) {
+            console.log('Error retrieving token', error);
+        }
+
+        console.log(`[API REQUEST] ${config.method.toUpperCase()} ${config.url}`, config.data instanceof FormData ? 'FormData' : config.data);
         return config;
     },
     (error) => {
@@ -46,6 +51,7 @@ export const login = async (identifier, password) => {
         const isEmail = identifier.includes('@');
         const payload = {
             email: isEmail ? identifier : "",
+            phone: !isEmail ? identifier : "",
             password
         };
         const response = await api.post('/api/auth/login', payload);
@@ -58,6 +64,28 @@ export const login = async (identifier, password) => {
 export const register = async (userData) => {
     try {
         const response = await api.post('/api/auth/register', userData);
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || error.message;
+    }
+};
+
+export const reportIssue = async (formData) => {
+    try {
+        const response = await api.post('/api/report', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || error.message;
+    }
+};
+
+export const getReports = async () => {
+    try {
+        const response = await api.get('/api/report/list');
         return response.data;
     } catch (error) {
         throw error.response?.data || error.message;
