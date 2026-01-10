@@ -110,11 +110,11 @@ const LoginScreen = ({ navigation }) => {
                     {/* Header Section */}
                     <View style={styles.header}>
                         {/* Placeholder for Logo - In real app, replace text logo with real Image */}
-                        {/* <Image source={require('../assets/logo.png')} style={styles.logo} resizeMode="contain" /> */}
-                        <View style={styles.logoContainer}>
+                        <Image source={require('../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+                        {/* <View style={styles.logoContainer}>
                             <Ionicons name="location" size={60} color={COLORS.primary} />
                             <Text style={styles.logoText}>SpotIt</Text>
-                        </View>
+                        </View> */}
 
                         <Text style={styles.title}>{isLogin ? 'Welcome Back!' : 'Join the Mission'}</Text>
                         <Text style={styles.subtitle}>
