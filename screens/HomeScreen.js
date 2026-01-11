@@ -22,6 +22,7 @@ import CustomButton from '../components/CustomButton';
 import IssueCard from '../components/IssueCard';
 import { useMockContext } from '../utils/MockContext';
 import { useLanguage } from '../utils/LanguageContext';
+import { reportIssue } from '../utils/api';
 import Header from '../components/Header';
 
 const { width } = Dimensions.get('window');
@@ -40,7 +41,7 @@ const HomeScreen = ({ navigation }) => {
     const pulseAnim = useRef(new Animated.Value(1)).current;
 
     // Context & Language
-    const { points, addIssue, issues, setUserLocation } = useMockContext();
+    const { points, addIssue, issues, setUserLocation, refreshIssues } = useMockContext();
     const { t } = useLanguage();
 
     const recentIssues = issues.slice(0, 3); // Top 3
@@ -152,15 +153,7 @@ const HomeScreen = ({ navigation }) => {
             formData.append('timestamp', Date.now().toString());
 
             // API URL Provided by User
-            const response = await fetch('https://fm0p8b2j-3000.inc1.devtunnels.ms/api/report', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            });
-
-            const result = response.ok ? await response.json() : {};
+            const result = await reportIssue(formData);
 
             const newIssue = {
                 id: result.id || Date.now().toString(),
@@ -177,28 +170,22 @@ const HomeScreen = ({ navigation }) => {
                 }
             };
 
-            addIssue(newIssue);
+            // Refresh global issues list from API
+            await refreshIssues();
+
             setAppState('SUCCESS');
 
         } catch (error) {
-            console.error("API Error:", error);
-            // Fallback
-            const newIssue = {
-                id: Date.now().toString(),
-                imageUri: capturedImage,
-                timestamp: Date.now(),
-                status: 'Pending Upload',
-                locationText: location.address || `${city}`,
-                category: 'Unidentified',
-                confidence: 0,
-                points: 0,
-                coordinates: {
-                    latitude: location.latitude,
-                    longitude: location.longitude
-                }
-            };
-            addIssue(newIssue);
-            setAppState('SUCCESS');
+            console.log("API Error");
+
+            // Check for specific "Invalid civic issue image" error
+            if (error?.error === "Invalid civic issue image" || error?.message === "Invalid civic issue image") {
+                setAppState('INVALID_SUBMISSION');
+            } else {
+                // Fallback for other errors (network etc) - maybe still allow offline or show error
+                Alert.alert("Error", error?.message || "Failed to submit issue. Please try again.");
+                setAppState('PREVIEW'); // Go back to preview so they can try again
+            }
         }
     };
 
@@ -268,16 +255,21 @@ const HomeScreen = ({ navigation }) => {
         <View style={[COMMON_STYLES.container, COMMON_STYLES.center, { padding: 30 }]}>
             <Ionicons name="checkmark-circle" size={80} color={COLORS.success} />
             <Text style={styles.successTitle}>{t('issueSubmitted')}</Text>
-
-            <View style={styles.resultCard}>
-                <Text style={styles.resultLabel}>Detected:</Text>
-                <Text style={styles.resultValue}>Garbage Dump (95%)</Text>
-                <View style={styles.divider} />
-                <Text style={styles.resultLabel}>Points Earned:</Text>
-                <Text style={styles.pointsValue}>+{POINTS_PER_SUBMISSION}</Text>
-            </View>
-
             <CustomButton title="Back to Home" onPress={handleBackToHome} />
+        </View>
+    );
+
+    const renderInvalidSubmission = () => (
+        <View style={[COMMON_STYLES.container, COMMON_STYLES.center, { padding: 30 }]}>
+            <Ionicons name="close-circle" size={80} color={COLORS.danger} />
+            <Text style={[styles.successTitle, { color: COLORS.danger }]}>Invalid Issue</Text>
+            <Text style={[styles.successDesc, { fontSize: 16, marginTop: 10 }]}>
+                The captured image does not appear to be a valid civic issue. Please capture a clear image of garbage, potholes, or other civic problems.
+            </Text>
+            <CustomButton title="Retake Photo" onPress={handleRetake} style={{ marginTop: 20, backgroundColor: COLORS.danger }} />
+            <TouchableOpacity onPress={handleBackToHome} style={{ marginTop: 15 }}>
+                <Text style={{ color: COLORS.textLight, fontSize: 16 }}>Cancel</Text>
+            </TouchableOpacity>
         </View>
     );
 
@@ -343,6 +335,7 @@ const HomeScreen = ({ navigation }) => {
             {appState === 'PREVIEW' && renderPreview()}
             {appState === 'PROCESSING' && renderProcessing()}
             {appState === 'SUCCESS' && renderSuccess()}
+            {appState === 'INVALID_SUBMISSION' && renderInvalidSubmission()}
 
             {renderCamera()}
         </View>
