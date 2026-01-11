@@ -62,7 +62,21 @@ export const TRANSLATIONS = {
         success: "Success",
         accountCreated: "Account created! Please login.",
         authFailed: "Authentication failed",
-        missionInitiative: "Swachh Bharat Mission Initiative"
+        missionInitiative: "Swachh Bharat Mission Initiative",
+
+        // Rewards Specific
+        insufficientPointsTitle: "Insufficient Points",
+        needMorePoints: "You need more points to redeem this reward.",
+        constfirmPurchaseTitle: "Confirm Redemption",
+        confirmPurchaseMsg: "Redeem {title} for {points} points?",
+        rewardRedeemed: "Reward Redeemed Successfully!",
+        purchaseFailed: "Purchase failed",
+        locked: "Locked",
+        redeeem: "Redeem",
+        verifiedCitizen: "Verified Citizen",
+        noRewards: "No rewards available at the moment.",
+        buy: "Redeem",
+        for: "for"
     },
     hi: { // Hindi
         appName: "स्पॉट इट",

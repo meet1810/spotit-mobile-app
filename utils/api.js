@@ -46,13 +46,14 @@ api.interceptors.response.use(
     }
 );
 
-export const login = async (identifier, password) => {
+export const login = async (identifier, password, fcmToken = null) => {
     try {
         const isEmail = identifier.includes('@');
         const payload = {
             email: isEmail ? identifier : "",
             phone: !isEmail ? identifier : "",
-            password
+            password,
+            fcmToken: fcmToken
         };
         const response = await api.post('/api/auth/login', payload);
         return response.data;
@@ -61,9 +62,10 @@ export const login = async (identifier, password) => {
     }
 };
 
-export const register = async (userData) => {
+export const register = async (userData, fcmToken = null) => {
     try {
-        const response = await api.post('/api/auth/register', userData);
+        const payload = { ...userData, fcmToken: fcmToken };
+        const response = await api.post('/api/auth/register', payload);
         return response.data;
     } catch (error) {
         throw error.response?.data || error.message;
@@ -86,6 +88,33 @@ export const reportIssue = async (formData) => {
 export const getReports = async () => {
     try {
         const response = await api.get('/api/report/list');
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || error.message;
+    }
+};
+
+export const getRewards = async () => {
+    try {
+        const response = await api.get('/api/rewards');
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || error.message;
+    }
+};
+
+export const getMyRewards = async () => {
+    try {
+        const response = await api.get('/api/rewards/my');
+        return response.data;
+    } catch (error) {
+        throw error.response?.data || error.message;
+    }
+};
+
+export const buyReward = async (id) => {
+    try {
+        const response = await api.post(`/api/rewards/${id}/buy`);
         return response.data;
     } catch (error) {
         throw error.response?.data || error.message;

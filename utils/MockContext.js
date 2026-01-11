@@ -112,6 +112,21 @@ export const MockProvider = ({ children }) => {
         }
     };
 
+    const updatePoints = async (newPoints) => {
+        setPoints(newPoints);
+        try {
+            await AsyncStorage.setItem('userPoints', newPoints.toString());
+            // Also update user object
+            if (user) {
+                const updatedUser = { ...user, points: newPoints };
+                setUser(updatedUser);
+                await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+            }
+        } catch (e) {
+            console.log('Error updating points', e);
+        }
+    };
+
     return (
         <MockContext.Provider value={{
             user,
@@ -123,6 +138,7 @@ export const MockProvider = ({ children }) => {
             logout,
             addIssue,
             refreshIssues,
+            updatePoints,
             userLocation,
             setUserLocation
         }}>

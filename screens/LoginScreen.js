@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { login as apiLogin, register as apiRegister } from '../utils/api';
 import { useMockContext } from '../utils/MockContext';
 import { useLanguage } from '../utils/LanguageContext';
+import { getFCMToken, onMessageListener } from '../utils/fcmHelper';
 
 const LoginScreen = ({ navigation }) => {
     const [isLogin, setIsLogin] = useState(true);
@@ -31,9 +32,35 @@ const LoginScreen = ({ navigation }) => {
     const [error, setError] = useState('');
     const [secureTextEntry, setSecureTextEntry] = useState(true);
     const [langModalVisible, setLangModalVisible] = useState(false);
+    const [fcmToken, setFcmToken] = useState(null);
 
     const { login } = useMockContext();
     const { t, changeLanguage, language, languages } = useLanguage();
+
+    useEffect(() => {
+        const setupFCM = async () => {
+            try {
+                // Register device (required for iOS)
+                if (Platform.OS === 'ios') {
+                    await messaging().registerDeviceForRemoteMessages();
+                }
+
+                const token = await messaging().getToken();
+                console.log("FCM Token:", token);
+                setFcmToken(token);
+            } catch (err) {
+                console.log("FCM Token Error:", err);
+            }
+        };
+
+        setupFCM();
+
+        const unsubscribe = onMessageListener(async remoteMessage => {
+            console.log("Notification:", remoteMessage);
+        });
+
+        return unsubscribe;
+    }, []);
 
     const toggleSecureEntry = () => {
         setSecureTextEntry(!secureTextEntry);
@@ -65,7 +92,7 @@ const LoginScreen = ({ navigation }) => {
 
             if (isLogin) {
                 // LOGIN
-                const response = await apiLogin(email, password);
+                const response = await apiLogin(email, password, fcmToken);
                 console.log('Login Success:', response);
 
                 if (response.success) {
@@ -82,7 +109,7 @@ const LoginScreen = ({ navigation }) => {
                     password
                 };
 
-                const response = await apiRegister(signupData);
+                const response = await apiRegister(signupData, fcmToken);
                 console.log('Register Success:', response);
                 Alert.alert(t('success'), t('accountCreated'));
                 setIsLogin(true);
@@ -185,7 +212,7 @@ const LoginScreen = ({ navigation }) => {
                             style={styles.authButton}
                         />
 
-                        <View style={styles.dividerContainer}>
+                        {/* <View style={styles.dividerContainer}>
                             <View style={styles.dividerLine} />
                             <Text style={styles.dividerText}>{t('or')}</Text>
                             <View style={styles.dividerLine} />
@@ -200,7 +227,7 @@ const LoginScreen = ({ navigation }) => {
                                     <Text style={styles.googleButtonText}>{t('continueGoogle')}</Text>
                                 </>
                             )}
-                        </TouchableOpacity>
+                        </TouchableOpacity> */}
 
                         <View style={styles.toggleContainer}>
                             <Text style={styles.toggleText}>
